@@ -487,6 +487,85 @@ namespace p4api.net.unit.test
 			}
 		}
 
+
+
+        /// <summary>
+		///A test for GetLabels
+		///</summary>
+		[TestMethod()]
+        public void GetLabelsTest()
+        {
+            bool unicode = false;
+
+            string uri = "localhost:6666";
+            string user = "admin";
+            string pass = string.Empty;
+            string ws_client = "admin_space";
+
+            for (int i = 0; i < 2; i++) // run once for ascii, once for unicode
+            {
+                Process p4d = Utilities.DeployP4TestServer(TestDir, 8, unicode);
+                Server server = new Server(new ServerAddress(uri));
+                try
+                {
+                    Repository rep = new Repository(server);
+
+                    using (Connection con = rep.Connection)
+                    {
+                        con.UserName = user;
+                        con.Client = new Client();
+                        con.Client.Name = ws_client;
+
+                        bool connected = con.Connect(null);
+                        Assert.IsTrue(connected);
+
+                        Assert.AreEqual(con.Status, ConnectionStatus.Connected);
+
+                        Options ops = new Options();
+                        ops["-m"] = "1";
+                        IList<Label> l = rep.GetLabels(ops);
+
+
+                        Assert.IsNotNull(l);
+                        Assert.AreEqual(1, l.Count);
+                        Assert.AreEqual("Created by admin.\n", l[0].Description);
+
+                        //now test for options set for a label that does not exist
+                        ops = new Options();
+                        ops["-u"] = "nonexistantuser";
+                        l = rep.GetLabels(ops);
+                        Assert.IsNull(l);
+
+                        // associate a file with a label
+                        FileSpec fs = new FileSpec(new DepotPath("//depot/Modifiers/ReadMe.txt"), null);
+
+                        IList<FileSpec> lfs = new List<FileSpec>();
+                        lfs.Add(fs);
+
+                        Options ops2 = new Options();
+                        IList<FileSpec> target = rep.TagFiles(lfs, "admin_label", ops2);
+                        Assert.IsNotNull(target);
+
+                        // get labels which include files in the path //depot/Modifiers/...
+                        FileSpec path = new FileSpec(new DepotPath("//depot/Modifiers@/..."), null);
+                        Options ops3 = new Options();
+                        IList<Label> l2 = rep.GetLabels(ops3, path);
+
+                        Assert.IsNotNull(l2);
+                        Assert.AreEqual(1, l2.Count);
+                        Assert.AreEqual("Created by admin.\n", l2[0].Description);
+
+
+                    }
+                }
+                finally
+                {
+                    Utilities.RemoveTestServer(p4d, TestDir);
+                }
+                unicode = !unicode;
+            }
+        }
+
         /// <summary>
         ///A test for GetLabelsPreServerID
         ///</summary>
